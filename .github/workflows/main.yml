@@ -1,17 +1,35 @@
-name: CI
-
-on: [push]
+name: Deploy Frontend
+on:
+  push:
+    branches:
+      - master # Note: You switched to 'main' here, Travis used 'master'
 
 jobs:
-  build-and-test:
+  test:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - run: docker build -t ivanlow/docker-react -f Dockerfile.dev .
+      - run: docker run -e CI=true ivanlow/docker-react npm run test
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: test # Only run if tests pass
+    steps:
+      - uses: actions/checkout@v4
       
-      - name: Build Docker Image
-        run: docker build -t ivanlow/docker-react -f Dockerfile.dev .
-      
-      - name: Run Tests
-        run: docker run -e CI=true ivanlow/docker-react npm run test
+      # The Manual Zip strategy (Good idea from Config B!)
+      - name: Generate deployment package
+        run: zip -r deploy.zip . -x '*.git*'
+
+      - name: Deploy to EB
+        uses: einaregilsson/beanstalk-deploy@v22 # Use v22
+        with:
+          aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          application_name: frontend         # Make sure this matches your AWS App name
+          environment_name: Frontend-env     # Make sure this matches your AWS Env name
+          existing_bucket_name: elasticbeanstalk-ap-southeast-2-019446560465
+          region: ap-southeast-2
+          version_label: ${{ github.sha }}
+          deployment_package: deploy.zip
