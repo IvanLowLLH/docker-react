@@ -1,0 +1,17 @@
+name: CI
+
+on: [push]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Build Docker Image
+        run: docker build -t ivanlow/docker-react -f Dockerfile.dev .
+      
+      - name: Run Tests
+        run: docker run -e CI=true ivanlow/docker-react npm run test
